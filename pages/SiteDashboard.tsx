@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { db } from '../db/db';
 import { Site, Snapshot, BacklinkRow } from '../types';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { LayoutDashboard, History, Globe2, ExternalLink, Search, BookmarkPlus, ChevronLeft, ChevronRight, ShieldAlert, ArrowUpDown, ChevronDown, ChevronUp, Activity, HelpCircle, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { LayoutDashboard, History, Globe2, ExternalLink, Search, BookmarkPlus, ChevronLeft, ChevronRight, ShieldAlert, ArrowUpDown, ChevronDown, ChevronUp, Activity, HelpCircle, X, CheckCircle2, Loader2, Trash2 } from 'lucide-react';
 import { getFaviconUrl, formatCompactNumber, getWhoisUrl, getScreenshotUrl } from '../utils/domain';
 
 const FilterToggle = (props: { label: string, checked: boolean, onChange: (v: boolean) => void }) => (
@@ -37,6 +37,13 @@ const Pagination = (props: { footer: string, current: number, total: number, onP
   </div>
 );
 
+const LinkTypeBadge = ({ row }: { row: BacklinkRow }) => {
+  if (row.sponsored) return <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-purple-100 text-purple-700">SPONSORED</span>;
+  if (row.ugc) return <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-orange-100 text-orange-700">UGC</span>;
+  if (row.nofollow) return <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-200 text-slate-600">NOFOLLOW</span>;
+  return <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-green-100 text-green-700">DOFOLLOW</span>;
+};
+
 export default function SiteDashboard() {
   const { siteId } = useParams();
   const [site, setSite] = useState<Site | null>(null);
@@ -48,6 +55,7 @@ export default function SiteDashboard() {
   const [selectedDateRows, setSelectedDateRows] = useState<BacklinkRow[] | null>(null);
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [expandedPanelDomain, setExpandedPanelDomain] = useState<string | null>(null);
+  const [expandedLinkLimit, setExpandedLinkLimit] = useState<Record<string, number>>({});
   const [inLibraryDomains, setInLibraryDomains] = useState<Set<string>>(new Set());
   const [timeRange, setTimeRange] = useState('180');
   const [search, setSearch] = useState('');
@@ -56,6 +64,7 @@ export default function SiteDashboard() {
   const [pageSize, setPageSize] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'dr', direction: 'desc' });
+  const [deletingSnapshot, setDeletingSnapshot] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -77,6 +86,22 @@ export default function SiteDashboard() {
     };
     fetchData();
   }, [siteId]);
+
+  const handleDeleteSnapshot = async (snapshotId: string) => {
+    await db.backlinks.where('snapshotId').equals(snapshotId).delete();
+    await db.snapshots.delete(snapshotId);
+    setSnapshots(prev => prev.filter(s => s.id !== snapshotId));
+    setDeletingSnapshot(null);
+    // Reload backlinks if we deleted the latest snapshot
+    if (snapshots.length > 1) {
+      const remaining = snapshots.filter(s => s.id !== snapshotId);
+      const latest = remaining[remaining.length - 1];
+      const rows = await db.backlinks.where('snapshotId').equals(latest.id).toArray();
+      setAllBacklinks(rows);
+    } else {
+      setAllBacklinks([]);
+    }
+  };
 
   const trendData = useMemo(() => {
     if (allBacklinks.length === 0) return [];
@@ -168,6 +193,11 @@ export default function SiteDashboard() {
       direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
     }));
     setCurrentPage(1);
+  };
+
+  const getVisibleLinks = (domain: string, links: any[]) => {
+    const limit = expandedLinkLimit[domain] || 10;
+    return links.slice(0, limit);
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-12 h-12 animate-spin text-indigo-600" /></div>;
@@ -304,7 +334,7 @@ export default function SiteDashboard() {
                   <React.Fragment key={d.domain}>
                     <tr className={`hover:bg-slate-50 transition-all ${expandedDomain === d.domain ? 'bg-indigo-50/30' : ''}`}>
                       <td className="px-8 py-5">
-                        <button onClick={() => setExpandedDomain(expandedDomain === d.domain ? null : d.domain)} className="p-2 hover:bg-white rounded-lg shadow-sm border border-transparent hover:border-slate-100">
+                        <button onClick={() => { setExpandedDomain(expandedDomain === d.domain ? null : d.domain); setExpandedLinkLimit(prev => ({ ...prev, [d.domain]: 10 })); }} className="p-2 hover:bg-white rounded-lg shadow-sm border border-transparent hover:border-slate-100">
                           {expandedDomain === d.domain ? <ChevronUp className="w-4 h-4 text-indigo-600" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                         </button>
                       </td>
@@ -341,7 +371,7 @@ export default function SiteDashboard() {
                         <td colSpan={6} className="p-0 border-b border-indigo-100">
                           <div className="p-10 space-y-6 animate-in fade-in slide-in-from-top-2">
                             <div className="flex items-center justify-between">
-                              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">引荐页面详情 (Referring Pages)</h5>
+                              <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">引荐页面详情 ({d.links.length} 条外链)</h5>
                               <div className="flex space-x-4">
                                 <a href={getWhoisUrl(d.domain)} target="_blank" rel="noreferrer" className="text-[9px] font-black text-indigo-600 uppercase bg-white border border-indigo-100 px-3 py-1.5 rounded-lg shadow-sm hover:bg-indigo-600 hover:text-white transition-all">Whois 查询</a>
                                 <a href={getScreenshotUrl(d.domain)} target="_blank" rel="noreferrer" className="text-[9px] font-black text-slate-600 uppercase bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all">网站截图预览</a>
@@ -351,26 +381,47 @@ export default function SiteDashboard() {
                               <table className="min-w-full text-[10px]">
                                 <thead className="bg-slate-50 border-b border-slate-100">
                                   <tr>
-                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">引荐页面 (Referring Page)</th>
-                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">锚文本 (Anchor)</th>
+                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">引荐页面</th>
+                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">目标页面</th>
+                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">锚文本</th>
+                                    <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">类型</th>
+                                    <th className="px-6 py-3 text-right font-black text-slate-400 uppercase">页面流量</th>
                                     <th className="px-6 py-3 text-left font-black text-slate-400 uppercase">首次发现</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                  {d.links.map((link: any, idx: number) => (
+                                  {getVisibleLinks(d.domain, d.links).map((link: BacklinkRow, idx: number) => (
                                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                                       <td className="px-6 py-4">
                                         <div className="flex items-center">
-                                          <span className="text-slate-900 font-bold truncate max-w-sm">{link.refPageUrl}</span>
-                                          <a href={link.refPageUrl} target="_blank" rel="noreferrer" className="ml-2 text-slate-300 hover:text-indigo-600"><ExternalLink className="w-3 h-3" /></a>
+                                          <span className="text-slate-900 font-bold truncate max-w-[200px]" title={link.refPageUrl}>{link.refPageUrl}</span>
+                                          <a href={link.refPageUrl} target="_blank" rel="noreferrer" className="ml-2 text-slate-300 hover:text-indigo-600 flex-shrink-0"><ExternalLink className="w-3 h-3" /></a>
                                         </div>
                                       </td>
-                                      <td className="px-6 py-4 text-slate-500 italic truncate max-w-[200px]">{link.anchor || '(No anchor)'}</td>
-                                      <td className="px-6 py-4 text-slate-400 font-bold">{link.firstSeen ? new Date(link.firstSeen).toLocaleDateString() : '-'}</td>
+                                      <td className="px-6 py-4">
+                                        <div className="flex items-center">
+                                          <span className="text-slate-500 truncate max-w-[180px]" title={link.targetUrl}>{link.targetUrl}</span>
+                                          <a href={link.targetUrl} target="_blank" rel="noreferrer" className="ml-2 text-slate-300 hover:text-indigo-600 flex-shrink-0"><ExternalLink className="w-3 h-3" /></a>
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 text-slate-500 italic truncate max-w-[150px]" title={link.anchor || ''}>{link.anchor || '(No anchor)'}</td>
+                                      <td className="px-6 py-4"><LinkTypeBadge row={link} /></td>
+                                      <td className="px-6 py-4 text-right text-slate-600 font-bold">{link.pageTraffic ? formatCompactNumber(link.pageTraffic) : '-'}</td>
+                                      <td className="px-6 py-4 text-slate-400 font-bold">{link.firstSeen ? new Date(link.firstSeen).toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
+                              {d.links.length > (expandedLinkLimit[d.domain] || 10) && (
+                                <div className="px-6 py-4 border-t border-slate-100 text-center">
+                                  <button
+                                    onClick={() => setExpandedLinkLimit(prev => ({ ...prev, [d.domain]: (prev[d.domain] || 10) + 20 }))}
+                                    className="text-[10px] font-black text-indigo-600 uppercase hover:text-indigo-800 transition-colors"
+                                  >
+                                    查看更多 (还有 {d.links.length - (expandedLinkLimit[d.domain] || 10)} 条)
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -393,14 +444,31 @@ export default function SiteDashboard() {
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">导入日期</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">文件名</th>
                 <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">记录数</th>
+                <th className="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest w-20">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {snapshots.map(s => (
-                <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={s.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-8 py-5 font-bold text-slate-900">{new Date(s.importedAt).toLocaleString()}</td>
                   <td className="px-8 py-5 text-slate-500 text-xs">{s.sourceFileName}</td>
                   <td className="px-8 py-5 text-right font-black text-indigo-600">{s.rowCount.toLocaleString()}</td>
+                  <td className="px-8 py-5 text-right">
+                    {deletingSnapshot === s.id ? (
+                      <div className="flex items-center justify-end space-x-2">
+                        <button onClick={() => setDeletingSnapshot(null)} className="text-[10px] font-bold text-slate-400 hover:text-slate-600">取消</button>
+                        <button onClick={() => handleDeleteSnapshot(s.id)} className="text-[10px] font-bold text-red-600 bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">确认</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingSnapshot(s.id)}
+                        className="p-1.5 rounded-lg text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 transition-all"
+                        title="删除快照"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -454,9 +522,7 @@ export default function SiteDashboard() {
                         {rows.map((row, i) => (
                           <div key={i} className="p-3 bg-white rounded-xl border border-slate-100">
                             <div className="flex items-center justify-between mb-1">
-                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg ${row.nofollow ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'}`}>
-                                {row.nofollow ? 'NOFOLLOW' : 'DOFOLLOW'}
-                              </span>
+                              <LinkTypeBadge row={row} />
                               <a href={row.refPageUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800"><ExternalLink className="w-3 h-3" /></a>
                             </div>
                             <p className="text-[10px] text-slate-500 break-all line-clamp-2 mb-1">{row.refPageUrl}</p>

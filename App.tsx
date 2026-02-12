@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
-import { Globe, Library, FileUp, BarChart3 } from 'lucide-react';
+import { Globe, Library, FileUp, BarChart3, FolderKanban } from 'lucide-react';
 import IntelList from './pages/IntelList';
 import SiteDashboard from './pages/SiteDashboard';
 import LibraryList from './pages/LibraryList';
 import LibraryDetail from './pages/LibraryDetail';
 import ExportToLibrary from './pages/ExportToLibrary';
 import SnapshotDetail from './pages/SnapshotDetail';
+import ProjectList from './pages/ProjectList';
+import ProjectDetail from './pages/ProjectDetail';
 import ImportModal from './components/ImportModal';
 
 const Navbar = ({ onOpenImport }: { onOpenImport: () => void }) => {
@@ -14,7 +16,8 @@ const Navbar = ({ onOpenImport }: { onOpenImport: () => void }) => {
   const isActive = (path: string) => location.pathname.startsWith(path);
   const navItems = [
     { path: '/intel', label: '站点智能', icon: Globe },
-    { path: '/library', label: '资源库', icon: Library }
+    { path: '/library', label: '资源库', icon: Library },
+    { path: '/projects', label: '外链计划', icon: FolderKanban }
   ];
 
   return (
@@ -75,6 +78,8 @@ export default function App() {
             <Route path="/intel/:siteId/export-to-library" element={<ExportToLibrary />} />
             <Route path="/library" element={<LibraryList />} />
             <Route path="/library/:domainId" element={<LibraryDetail />} />
+            <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/:projectId" element={<ProjectDetail />} />
           </Routes>
         </main>
         <footer className="bg-white border-t border-slate-100 py-10 mt-12">

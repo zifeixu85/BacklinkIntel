@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { db } from '../db/db';
-import { LinkLibraryDomain, Site } from '../types';
-import { ChevronLeft, Save, Trash2, Link as LinkIcon, History, ExternalLink, Globe, DollarSign, Info } from 'lucide-react';
+import { LinkLibraryDomain, Site, DomainType } from '../types';
+import { ChevronLeft, Save, Trash2, History, ExternalLink, Info } from 'lucide-react';
+
+const DOMAIN_TYPE_LABELS: Record<DomainType, string> = {
+  blog: '博客站', directory: '目录站', news: '新闻站', forum: '论坛', other: '其他', unknown: '未知'
+};
 
 export default function LibraryDetail() {
   const { domainId } = useParams();
@@ -86,7 +90,7 @@ export default function LibraryDetail() {
           <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/40 space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <FormGroup label="显示名称 (Alias)">
-                <input 
+                <input
                   type="text"
                   value={item.displayName || ''}
                   onChange={e => setItem({...item, displayName: e.target.value})}
@@ -95,7 +99,7 @@ export default function LibraryDetail() {
                 />
               </FormGroup>
               <FormGroup label="合作进度 (Status)">
-                <select 
+                <select
                   value={item.status}
                   onChange={e => setItem({...item, status: e.target.value as any})}
                   className="form-input-custom appearance-none cursor-pointer"
@@ -108,7 +112,7 @@ export default function LibraryDetail() {
                 </select>
               </FormGroup>
               <FormGroup label="费用模式 (Pricing)">
-                <select 
+                <select
                   value={item.pricingType}
                   onChange={e => setItem({...item, pricingType: e.target.value as any})}
                   className="form-input-custom appearance-none cursor-pointer"
@@ -118,8 +122,19 @@ export default function LibraryDetail() {
                   <option value="paid">付费 (Paid)</option>
                 </select>
               </FormGroup>
+              <FormGroup label="域名类型 (Domain Type)">
+                <select
+                  value={item.domainType || 'unknown'}
+                  onChange={e => setItem({...item, domainType: e.target.value as DomainType})}
+                  className="form-input-custom appearance-none cursor-pointer"
+                >
+                  {Object.entries(DOMAIN_TYPE_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+              </FormGroup>
               <FormGroup label={`价格 (Amount - ${item.currency})`}>
-                <input 
+                <input
                   type="number"
                   value={item.priceAmount || ''}
                   onChange={e => setItem({...item, priceAmount: e.target.value ? parseFloat(e.target.value) : null})}
@@ -127,19 +142,20 @@ export default function LibraryDetail() {
                   placeholder="0.00"
                 />
               </FormGroup>
+              <div></div>
               <div className="md:col-span-2">
                 <FormGroup label="投稿或联系 URL (Cooperation Link)">
                   <div className="flex">
-                    <input 
+                    <input
                       type="url"
                       value={item.submissionUrl || ''}
                       onChange={e => setItem({...item, submissionUrl: e.target.value})}
                       className="form-input-custom rounded-r-none border-r-0"
                       placeholder="https://..."
                     />
-                    <a 
-                      href={item.submissionUrl || '#'} 
-                      target="_blank" 
+                    <a
+                      href={item.submissionUrl || '#'}
+                      target="_blank"
                       rel="noreferrer"
                       className={`px-5 flex items-center bg-slate-50 border border-slate-200 rounded-r-2xl transition-all ${item.submissionUrl ? 'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700' : 'text-slate-200 pointer-events-none'}`}
                     >
@@ -150,7 +166,7 @@ export default function LibraryDetail() {
               </div>
               <div className="md:col-span-2">
                 <FormGroup label="内部备注 (Internal Notes)">
-                  <textarea 
+                  <textarea
                     value={item.notes || ''}
                     onChange={e => setItem({...item, notes: e.target.value})}
                     className="form-input-custom h-40 resize-none py-4"
@@ -159,9 +175,9 @@ export default function LibraryDetail() {
                 </FormGroup>
               </div>
             </div>
-            
+
             <div className="pt-8 border-t border-slate-100 flex justify-end">
-               <button 
+               <button
                 type="submit"
                 className="px-10 py-4 bg-indigo-600 text-white font-black text-sm rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all transform active:scale-95 flex items-center"
                >
@@ -173,7 +189,6 @@ export default function LibraryDetail() {
         </form>
 
         <div className="space-y-8">
-          {/* 使用统计 */}
           <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl shadow-slate-200/40">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center">
               <History className="w-4 h-4 mr-2 text-indigo-500" />
@@ -181,13 +196,13 @@ export default function LibraryDetail() {
             </h3>
             {usage.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-sm text-slate-300 italic font-medium">尚未在任何导入的分析项目中发现该域名。</p>
+                <p className="text-sm text-slate-300 italic font-medium">尚未在任何导入数据中发现该域名。</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {usage.map(u => (
-                  <Link 
-                    key={u.site.id} 
+                  <Link
+                    key={u.site.id}
                     to={`/intel/${u.site.id}`}
                     className="flex items-center justify-between p-4 bg-slate-50 border border-transparent rounded-2xl hover:border-indigo-100 hover:bg-indigo-50 transition-all group"
                   >
@@ -217,7 +232,7 @@ export default function LibraryDetail() {
               </li>
               <li className="flex items-start">
                 <span className="text-indigo-500 mr-2">•</span>
-                <span>如果多个项目都使用了该资源，建议将其标记为 "高价值" 标签。</span>
+                <span>如果多个项目都使用了该资源，建议将其标记为高价值标签。</span>
               </li>
               <li className="flex items-start">
                 <span className="text-indigo-500 mr-2">•</span>
@@ -245,7 +260,8 @@ export default function LibraryDetail() {
           border-color: #6366f1;
           box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
-      `}</style>
+      `}
+      </style>
     </div>
   );
 }
