@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/db';
 import { LinkLibraryDomain, PricingType, DomainType, Site, BacklinkRow } from '../types';
-import { Search, Plus, Layers, Loader2, Trash2, ExternalLink, Globe, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, Plus, Layers, Loader2, Trash2, ExternalLink, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getFaviconUrl, formatCompactNumber, getWhoisUrl } from '../utils/domain';
 import Modal from '../components/Modal';
 
@@ -253,7 +253,7 @@ export default function LibraryList() {
       )}
 
       {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)}>
+        <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)}>
           <div className="p-8 max-w-md mx-auto">
             <h2 className="text-xl font-black text-slate-900 mb-6">手动添加外链资源</h2>
             <div className="space-y-5">

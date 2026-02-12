@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { db } from '../db/db';
-import { OutreachProject, OutreachTask, LinkLibraryDomain, Site, TaskStatus, BacklinkRow, PricingType } from '../types';
+import { OutreachProject, OutreachTask, LinkLibraryDomain, TaskStatus, BacklinkRow } from '../types';
 import { ChevronLeft, ChevronRight, Plus, Calendar, List, Trash2, Loader2, CheckCircle2, Circle, Clock, SkipForward, Search } from 'lucide-react';
 import { getFaviconUrl, formatCompactNumber } from '../utils/domain';
 import Modal from '../components/Modal';
@@ -20,7 +20,6 @@ export default function ProjectDetail() {
   const [project, setProject] = useState<OutreachProject | null>(null);
   const [tasks, setTasks] = useState<OutreachTask[]>([]);
   const [libraryDomains, setLibraryDomains] = useState<LinkLibraryDomain[]>([]);
-  const [site, setSite] = useState<Site | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [showAddTask, setShowAddTask] = useState(false);
@@ -61,10 +60,6 @@ export default function ProjectDetail() {
         if ((bl.domainTraffic || 0) > metrics[bl.refDomain].traffic) metrics[bl.refDomain].traffic = bl.domainTraffic || 0;
       });
       setDomainMetrics(metrics);
-      if (p.siteId) {
-        const s = await db.sites.get(p.siteId);
-        if (s) setSite(s);
-      }
       setLoading(false);
     };
     fetchData();
@@ -212,7 +207,7 @@ export default function ProjectDetail() {
           <div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">{project.name}</h1>
             <div className="flex items-center space-x-3 mt-1">
-              {site && <span className="text-xs font-bold text-indigo-500">{site.name}</span>}
+              {project.targetUrl && <span className="text-xs font-bold text-indigo-500">{project.targetUrl}</span>}
               {project.description && <span className="text-sm text-slate-400">{project.description}</span>}
             </div>
           </div>
