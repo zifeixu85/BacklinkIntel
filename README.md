@@ -42,13 +42,13 @@
 git clone https://github.com/zifeixu85/BacklinkIntel.git
 
 # 2. 进入项目目录
-cd backlink-intel-gemini
+cd BacklinkIntel
 
 # 3. 安装依赖
-npm install
+pnpm install
 
 # 4. 启动项目
-npm run dev
+pnpm dev
 ```
 
 启动成功后，在浏览器中打开 **http://localhost:3000/** 即可使用。
@@ -125,7 +125,7 @@ Ahrefs、SEMrush 等主流 SEO 工具导出的 Backlinks CSV 或 Excel 文件均
 <details>
 <summary><b>Q: 我没有 Git，怎么下载项目？</b></summary>
 
-你可以直接在 GitHub 项目页面点击绿色的 **「Code」** 按钮，选择 **「Download ZIP」**，下载后解压即可。然后在终端中进入解压后的文件夹，继续执行 `npm install`。
+你可以直接在 GitHub 项目页面点击绿色的 **「Code」** 按钮，选择 **「Download ZIP」**，下载后解压即可。然后在终端中进入解压后的文件夹，继续执行 `pnpm install`。
 
 </details>
 
@@ -147,7 +147,7 @@ Ahrefs、SEMrush 等主流 SEO 工具导出的 Backlinks CSV 或 Excel 文件均
 ## 项目结构
 
 ```text
-backlink-intel-gemini/
+BacklinkIntel/
 ├── index.html          # 入口 HTML 文件
 ├── index.tsx           # React 入口
 ├── App.tsx             # 根组件（路由、布局）
@@ -161,7 +161,9 @@ backlink-intel-gemini/
 │   ├── SnapshotDetail.tsx#  导入快照详情
 │   ├── LibraryList.tsx  #   资源库列表
 │   ├── LibraryDetail.tsx#   资源库详情
-│   └── ExportToLibrary.tsx# 批量导出到资源库
+│   ├── ExportToLibrary.tsx# 批量导出到资源库
+│   ├── ProjectList.tsx  #   外链计划列表
+│   └── ProjectDetail.tsx#   外链计划详情（列表/日历视图）
 ├── db/
 │   └── db.ts           # 数据库定义 (Dexie/IndexedDB)
 ├── utils/
