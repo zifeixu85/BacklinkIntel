@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/db';
 import { Site, Snapshot } from '../types';
-import { Globe, Calendar, ArrowRight, BarChart2, Hash, Database, Layers } from 'lucide-react';
+import { Globe, Calendar, ArrowRight, BarChart2, Hash, Database, Layers, Trash2 } from 'lucide-react';
 
 export default function IntelList() {
   const [sites, setSites] = useState<Site[]>([]);
   const [latestSnapshots, setLatestSnapshots] = useState<Record<string, Snapshot>>({});
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalBacklinks: 0, totalLibrary: 0 });
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +39,28 @@ export default function IntelList() {
     };
     fetchData();
   }, []);
+
+  const handleDeleteSite = async (siteId: string) => {
+    setDeleting(true);
+    try {
+      await db.backlinks.where('siteId').equals(siteId).delete();
+      const snapshots = await db.snapshots.where('siteId').equals(siteId).toArray();
+      await db.snapshots.where('siteId').equals(siteId).delete();
+      await db.sites.delete(siteId);
+
+      setSites(prev => prev.filter(s => s.id !== siteId));
+      setLatestSnapshots(prev => {
+        const next = { ...prev };
+        delete next[siteId];
+        return next;
+      });
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error('删除站点失败:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
@@ -116,13 +140,39 @@ export default function IntelList() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {sites.map((site) => {
             const latest = latestSnapshots[site.id];
+            const isConfirming = deleteConfirm === site.id;
             return (
-              <Link
+              <div
                 key={site.id}
-                to={`/intel/${site.id}`}
-                className="group block bg-white border border-slate-200 rounded-[2rem] overflow-hidden hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-300 translate-y-0 hover:-translate-y-1"
+                className="group relative bg-white border border-slate-200 rounded-[2rem] overflow-hidden hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-100 transition-all duration-300 translate-y-0 hover:-translate-y-1"
               >
-                <div className="p-8">
+                {isConfirming && (
+                  <div className="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center rounded-[2rem] p-8">
+                    <div className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-4">
+                      <Trash2 className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-black text-slate-900 mb-1">确认删除站点？</p>
+                    <p className="text-xs text-slate-400 mb-6 text-center">将删除 <span className="font-bold text-slate-600">{site.name}</span> 的所有快照和外链数据，此操作不可恢复</p>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-5 py-2 text-sm font-bold text-slate-500 hover:text-slate-900"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSite(site.id)}
+                        disabled={deleting}
+                        className="px-5 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors flex items-center"
+                      >
+                        {deleting ? <span className="animate-spin mr-1.5">...</span> : null}
+                        确认删除
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <Link to={`/intel/${site.id}`} className="block p-8">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-slate-50 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white rounded-2xl flex items-center justify-center transition-colors">
@@ -134,7 +184,7 @@ export default function IntelList() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {latest ? (
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
@@ -162,8 +212,16 @@ export default function IntelList() {
                       <p className="text-sm text-slate-300 italic font-medium">暂无数据摘要</p>
                     </div>
                   )}
-                </div>
-              </Link>
+                </Link>
+
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteConfirm(site.id); }}
+                  className="absolute top-4 right-4 z-10 p-2 rounded-xl text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 transition-all"
+                  title="删除站点"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             );
           })}
         </div>

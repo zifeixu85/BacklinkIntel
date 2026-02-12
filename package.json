@@ -15,7 +15,8 @@
     "lucide-react": "0.294.0",
     "recharts": "2.12.2",
     "dexie": "3.2.4",
-    "papaparse": "5.4.1"
+    "papaparse": "5.4.1",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -47,6 +47,7 @@ export default function SiteDashboard() {
   const [chartMode, setChartMode] = useState('cumulative');
   const [selectedDateRows, setSelectedDateRows] = useState<BacklinkRow[] | null>(null);
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  const [expandedPanelDomain, setExpandedPanelDomain] = useState<string | null>(null);
   const [inLibraryDomains, setInLibraryDomains] = useState<Set<string>>(new Set());
   const [timeRange, setTimeRange] = useState('180');
   const [search, setSearch] = useState('');
@@ -87,13 +88,13 @@ export default function SiteDashboard() {
         }
       }
     });
-    const dailyStats: Record<string, { newlyFound: number, rows: BacklinkRow[] }> = {};
+    const dailyStats: Record<string, { newlyFoundDomains: Set<string>, rows: BacklinkRow[] }> = {};
     allBacklinks.forEach(row => {
       if (row.firstSeen) {
         const dateStr = new Date(row.firstSeen).toISOString().split('T')[0];
-        if (!dailyStats[dateStr]) dailyStats[dateStr] = { newlyFound: 0, rows: [] };
+        if (!dailyStats[dateStr]) dailyStats[dateStr] = { newlyFoundDomains: new Set(), rows: [] };
         if (domainFirstSeen[row.refDomain] === row.firstSeen) {
-          dailyStats[dateStr].newlyFound++;
+          dailyStats[dateStr].newlyFoundDomains.add(row.refDomain);
         }
         dailyStats[dateStr].rows.push(row);
       }
@@ -102,12 +103,13 @@ export default function SiteDashboard() {
     if (sortedDates.length === 0) return [];
     let cumulative = 0;
     const result = sortedDates.map(date => {
-      cumulative += dailyStats[date].newlyFound;
+      const newDomainCount = dailyStats[date].newlyFoundDomains.size;
+      cumulative += newDomainCount;
       return {
         date: date,
-        count: chartMode === 'cumulative' ? cumulative : dailyStats[date].newlyFound,
+        count: chartMode === 'cumulative' ? cumulative : newDomainCount,
         rows: dailyStats[date].rows,
-        displayDate: new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+        displayDate: new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' }),
         timestamp: new Date(date).getTime()
       };
     });
@@ -171,33 +173,9 @@ export default function SiteDashboard() {
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-12 h-12 animate-spin text-indigo-600" /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {selectedDateRows && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-[60] border-l border-slate-200 transform animate-in slide-in-from-right duration-300">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div>
-              <h3 className="font-black text-slate-900">该日新增外链分析</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Found {selectedDateRows.length} Links</p>
-            </div>
-            <button onClick={() => setSelectedDateRows(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5" /></button>
-          </div>
-          <div className="p-6 overflow-y-auto h-[calc(100vh-80px)] space-y-4">
-            {selectedDateRows.map((row, i) => (
-              <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 transition-all">
-                <p className="text-xs font-black text-slate-900 truncate mb-1">{row.refDomain}</p>
-                <p className="text-[10px] text-slate-500 break-all mb-3 line-clamp-2">{row.refPageUrl}</p>
-                <div className="flex items-center justify-between">
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg ${row.nofollow ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'}`}>
-                    {row.nofollow ? 'NOFOLLOW' : 'DOFOLLOW'}
-                  </span>
-                  <a href={row.refPageUrl} target="_blank" rel="noreferrer" className="text-indigo-600"><ExternalLink className="w-3.5 h-3.5" /></a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+    <div className="flex">
+      <div className={`flex-1 min-w-0 transition-all duration-300 ${selectedDateRows ? 'mr-0' : ''}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="bg-white rounded-[2.5rem] border border-slate-200 p-10 mb-10 shadow-xl shadow-slate-200/30">
         <div className="flex flex-col md:flex-row justify-between gap-8">
           <div className="flex items-center space-x-6">
@@ -429,6 +407,71 @@ export default function SiteDashboard() {
           </table>
         </div>
       )}
+        </div>
+      </div>
+
+      {selectedDateRows && (() => {
+        const domainGroups: Record<string, BacklinkRow[]> = {};
+        selectedDateRows.forEach(row => {
+          if (!domainGroups[row.refDomain]) domainGroups[row.refDomain] = [];
+          domainGroups[row.refDomain].push(row);
+        });
+        const domainList = Object.entries(domainGroups).sort((a, b) => b[1].length - a[1].length);
+
+        return (
+          <div className="w-[400px] flex-shrink-0 sticky top-0 h-screen bg-white border-l border-slate-200 shadow-xl transition-all duration-300 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="font-black text-slate-900">该日新增域名分析</h3>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{domainList.length} 个域名 / {selectedDateRows.length} 条外链</p>
+              </div>
+              <button onClick={() => { setSelectedDateRows(null); setExpandedPanelDomain(null); }} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 overflow-y-auto h-[calc(100vh-80px)] space-y-3">
+              {domainList.map(([domain, rows]) => {
+                const isExpanded = expandedPanelDomain === domain;
+                return (
+                  <div key={domain} className="bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 transition-all overflow-hidden">
+                    <button
+                      onClick={() => setExpandedPanelDomain(isExpanded ? null : domain)}
+                      className="w-full p-4 flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <img src={getFaviconUrl(domain)} className="w-5 h-5 rounded bg-slate-200 flex-shrink-0" onError={e => ((e.target as any).src = "https://placeholder.im/32x32")} alt="" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-slate-900 truncate">{domain}</p>
+                          <p className="text-[10px] text-slate-400">{rows.length} 条外链</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {rows.some(r => !r.nofollow) && <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-green-100 text-green-700">DF</span>}
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-2 animate-in fade-in slide-in-from-top-2">
+                        {rows.map((row, i) => (
+                          <div key={i} className="p-3 bg-white rounded-xl border border-slate-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg ${row.nofollow ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-700'}`}>
+                                {row.nofollow ? 'NOFOLLOW' : 'DOFOLLOW'}
+                              </span>
+                              <a href={row.refPageUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800"><ExternalLink className="w-3 h-3" /></a>
+                            </div>
+                            <p className="text-[10px] text-slate-500 break-all line-clamp-2 mb-1">{row.refPageUrl}</p>
+                            {row.anchor && <p className="text-[10px] text-slate-400 italic truncate">Anchor: {row.anchor}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../db/db';
 import { LinkLibraryDomain, PricingType } from '../types';
-import { Search, Plus, Globe, Layers, Calendar, ArrowRight, ShieldCheck, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Search, Plus, Globe, Layers, Calendar, ArrowRight, ShieldCheck, Image as ImageIcon, Loader2, Trash2 } from 'lucide-react';
 import { getFaviconUrl, getWhoisUrl, getScreenshotUrl } from '../utils/domain';
 
 const PricingBadge = ({ type }: { type: PricingType }) => {
@@ -15,6 +15,8 @@ export default function LibraryList() {
   const [items, setItems] = useState<LinkLibraryDomain[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -24,6 +26,19 @@ export default function LibraryList() {
     };
     fetchItems();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    try {
+      await db.library.delete(id);
+      setItems(prev => prev.filter(i => i.id !== id));
+      setDeleteConfirm(null);
+    } catch (err) {
+      console.error('删除资源失败:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const filtered = items.filter(i => i.domain.includes(search.toLowerCase()));
 
@@ -62,7 +77,31 @@ export default function LibraryList() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {filtered.map(item => (
-          <div key={item.id} className="bg-[#111827] rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all duration-300 translate-y-0 hover:-translate-y-2">
+          <div key={item.id} className="relative bg-[#111827] rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-800 flex flex-col group hover:border-indigo-500/50 transition-all duration-300 translate-y-0 hover:-translate-y-2">
+            {deleteConfirm === item.id && (
+              <div className="absolute inset-0 z-20 bg-[#111827]/95 backdrop-blur-sm flex flex-col items-center justify-center rounded-[2.5rem] p-8">
+                <div className="w-12 h-12 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mb-4">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <p className="text-sm font-black text-white mb-1">确认删除？</p>
+                <p className="text-xs text-slate-400 mb-6 text-center">将从资源库中移除 <span className="font-bold text-slate-200">{item.domain}</span></p>
+                <div className="flex space-x-3">
+                  <button onClick={() => setDeleteConfirm(null)} className="px-5 py-2 text-sm font-bold text-slate-400 hover:text-white">取消</button>
+                  <button onClick={() => handleDelete(item.id)} disabled={deleting} className="px-5 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition-colors">
+                    确认删除
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setDeleteConfirm(item.id)}
+              className="absolute top-4 right-4 z-10 p-2 rounded-xl text-slate-600 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-400 transition-all"
+              title="删除资源"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
             {/* 卡片头部 */}
             <div className="p-8 border-b border-slate-800 bg-slate-900/50">
               <div className="flex justify-between items-start mb-6">
@@ -96,7 +135,7 @@ export default function LibraryList() {
                   <p className="text-xs font-black text-slate-200">{new Date(item.updatedAt).toLocaleDateString()}</p>
                 </div>
               </div>
-              
+
               <div className="text-xs text-slate-400 font-medium leading-relaxed line-clamp-2 italic">
                 {item.notes || '暂无详细描述...'}
               </div>
